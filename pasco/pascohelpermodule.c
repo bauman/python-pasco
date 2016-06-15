@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <Python.h>
 
 //
 /* This is the default block size for an activity record */
