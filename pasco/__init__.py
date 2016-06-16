@@ -23,7 +23,7 @@ class IndexParser(object):
                     if len(line) == 1:
                         break
         finally:
-            pass #os.unlink(return_file)
+            os.unlink(return_file)
         return
     def make_dict(self, headers, line):
         result = {}
