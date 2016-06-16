@@ -103,7 +103,7 @@ int printablestring( char *str ) {
 /* This function parses a REDR record. */
 //
 int
-parse_redr( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
+parse_redr( int history_file, int output_file,  PyObject** output_obj, int currrecoff, char *delim, int filesize, char *type ) {
   char fourbytes[4];
   char hashrecflagsstr[4];
   char chr;
@@ -148,7 +148,12 @@ parse_redr( int history_file, int output_file, int currrecoff, char *delim, int 
   printablestring( filename );
   printablestring( dirname );
   printablestring( httpheaders );
-  fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  if (output_obj==NULL)
+  {
+    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  } else {
+    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  }
   type[0] = '\0';
   free( url );
   free( filename );
@@ -160,7 +165,7 @@ parse_redr( int history_file, int output_file, int currrecoff, char *delim, int 
 /* This function parses a URL and LEAK activity record. */
 //
 int
-parse_url( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
+parse_url( int history_file, int output_file, PyObject** output_obj, int currrecoff, char *delim, int filesize, char *type ) {
   char fourbytes[4];
   char hashrecflagsstr[4];
   char eightbytes[8];
@@ -249,7 +254,12 @@ parse_url( int history_file, int output_file, int currrecoff, char *delim, int f
   if (type[3] == ' ') {
     type[3] = '\0';
   }
-  fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  if (output_obj==NULL)
+  {
+    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  } else {
+    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+  }
   type[0] = '\0';
   dirname[0] = '\0';
   ascmodtime[0] = '\0';
@@ -260,8 +270,12 @@ parse_url( int history_file, int output_file, int currrecoff, char *delim, int f
   return 0;
 }
 
-int parse_unknown( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
+int parse_unknown( int history_file, int output_file, PyObject** output_obj, int currrecoff, char *delim, int filesize, char *type ) {
   type[0] = '\0';
+  if (output_obj!=NULL)
+  {
+    (* output_obj) = Py_BuildValue("i", 0);
+  }
 }
 
 
@@ -349,11 +363,11 @@ mainparse(PyObject* self, PyObject* args) {
             }
             type[4] = '\0';
             if (type[0] == 'R' && type[1] == 'E' && type[2] == 'D' && type[3] == 'R' ) {
-              parse_redr( history_file, output_file, currrecoff, delim, filesize, type );
+              parse_redr( history_file, output_file, NULL, currrecoff, delim, filesize, type );
             } else if ( (type[0] == 'U' && type[1] == 'R' && type[2] == 'L') || (type[0] == 'L' && type[1] == 'E' && type[2] == 'A' && type[3] == 'K') ) {
-              parse_url( history_file, output_file, currrecoff, delim, filesize, type );
+              parse_url( history_file, output_file, NULL,  currrecoff, delim, filesize, type );
             } else {
-              parse_unknown( history_file, output_file, currrecoff, delim, filesize, type );
+              parse_unknown( history_file, output_file, NULL, currrecoff, delim, filesize, type );
             }
           }
         }
@@ -369,11 +383,11 @@ mainparse(PyObject* self, PyObject* args) {
       }
       type[4] = '\0';
       if (type[0] == 'R' && type[1] == 'E' && type[2] == 'D' && type[3] == 'R' ) {
-        parse_redr( history_file, output_file, currrecoff, delim, filesize, type );
+        parse_redr( history_file, output_file, NULL, currrecoff, delim, filesize, type );
       } else if ( (type[0] == 'U' && type[1] == 'R' && type[2] == 'L') || (type[0] == 'L' && type[1] == 'E' && type[2] == 'A' && type[3] == 'K') ) {
-        parse_url( history_file, output_file, currrecoff, delim, filesize, type );
+        parse_url( history_file, output_file, NULL, currrecoff, delim, filesize, type );
       } else {
-        parse_unknown( history_file, output_file, currrecoff, delim, filesize, type );
+        parse_unknown( history_file, output_file, NULL, currrecoff, delim, filesize, type );
       }
       currrecoff = currrecoff + BLOCK_SIZE;
     }
@@ -385,15 +399,147 @@ mainparse(PyObject* self, PyObject* args) {
   return result;
 }
 
+typedef struct {
+    PyObject_HEAD
+    long int m;
+    long int i;
+    int history_file, output_file;
+    char fourbytes[4];
+    char chr;
+    char delim[10];
+    int currrecoff;
+    int filesize;
+    int opt;
+    time_t modtime;
+    time_t accesstime;
+    char type[5];
+    char hashrecflagsstr[4];
+    int hashoff;
+    int hashsize;
+    int nexthashoff;
+    int offset;
+    int hashrecflags;
+    int deleted;
+} pasco_IterParse;
+
+
+PyObject* pasco_IterParse_iter(PyObject *self)
+{
+    Py_INCREF(self);
+    return self;
+}
+
+PyObject* pasco_IterParse_iternext(PyObject *self)
+{
+  pasco_IterParse *p = (pasco_IterParse *)self;
+  int i = 0;
+
+  if (p->currrecoff < p->filesize) {
+    PyObject *tmp = NULL;
+
+    pread( p->history_file, p->fourbytes, 4, p->currrecoff );
+    for (i=0;i < 4;i++) {
+      p->type[i] = p->fourbytes[i];
+    }
+    p->type[4] = '\0';
+    if (p->type[0] == 'R' && p->type[1] == 'E' && p->type[2] == 'D' && p->type[3] == 'R' ) {
+      parse_redr( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
+    } else if ( (p->type[0] == 'U' && p->type[1] == 'R' && p->type[2] == 'L') || (p->type[0] == 'L' && p->type[1] == 'E' && p->type[2] == 'A' && p->type[3] == 'K') ) {
+      parse_url( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
+    } else {
+      parse_unknown( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
+    }
+    p->currrecoff = p->currrecoff + BLOCK_SIZE;
+    return tmp;
+  } else {
+    close(p->history_file);
+    /* Raising of standard StopIteration exception with empty value. */
+    PyErr_SetNone(PyExc_StopIteration);
+    return NULL;
+  }
+}
+static PyTypeObject pasco_IterParseType = {
+        PyObject_HEAD_INIT(NULL)  //REMOVE THIS COMMA
+        0,                         /*ob_size*/
+        "pascohelper._IterParse",            /*tp_name*/
+        sizeof(pasco_IterParse),       /*tp_basicsize*/
+        0,                         /*tp_itemsize*/
+        0,                         /*tp_dealloc*/
+        0,                         /*tp_print*/
+        0,                         /*tp_getattr*/
+        0,                         /*tp_setattr*/
+        0,                         /*tp_compare*/
+        0,                         /*tp_repr*/
+        0,                         /*tp_as_number*/
+        0,                         /*tp_as_sequence*/
+        0,                         /*tp_as_mapping*/
+        0,                         /*tp_hash */
+        0,                         /*tp_call*/
+        0,                         /*tp_str*/
+        0,                         /*tp_getattro*/
+        0,                         /*tp_setattro*/
+        0,                         /*tp_as_buffer*/
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_ITER,
+        /* tp_flags: Py_TPFLAGS_HAVE_ITER tells python to
+           use tp_iter and tp_iternext fields. */
+        "Internal IterParse iterator object.",           /* tp_doc */
+        0,  /* tp_traverse */
+        0,  /* tp_clear */
+        0,  /* tp_richcompare */
+        0,  /* tp_weaklistoffset */
+        pasco_IterParse_iter,  /* tp_iter: __iter__() method */
+        pasco_IterParse_iternext  /* tp_iternext: next() method */
+};
+static PyObject *
+pasco_iterparse(PyObject *self, PyObject *args)
+{
+  long int m;
+  pasco_IterParse *p;
+  p = PyObject_New(pasco_IterParse, &pasco_IterParseType);
+  if (!p) return NULL;
+
+  /* I'm not sure if it's strictly necessary. */
+  if (!PyObject_Init((PyObject *)p, &pasco_IterParseType)) {
+    Py_DECREF(p);
+    return NULL;
+  }
+
+  const char * filename = "ok";
+  if (!PyArg_ParseTuple(args, "s", &filename)){
+    return NULL;
+  }
+  strcpy( p->delim, "||" );
+  p->deleted = 1;
+  p->currrecoff = 0;
+
+  p->history_file = open( filename, O_RDONLY, 0 );
+  if ( p->history_file <= 0 ) {
+    printf("ERROR - The index.dat file cannot be opened!\n\n");
+    printf("ERROR\n\n");
+    return NULL;
+  }
+  pread( p->history_file, p->fourbytes, 4, 0x1C );
+  p->filesize = bah_to_i( p->fourbytes, 4 );
+  //fprintf(output_file, "type%surl%smodified_time%saccess_time%sfilename%sdirectory%shttp_headers\n", delim, delim, delim, delim, delim, delim);
+  p->currrecoff = 0;
+  return (PyObject *)p;
+}
 
 static PyMethodDef PascoHelperMethods[] =
 {
      {"mainparse", mainparse, METH_VARARGS, "parses an index.dat file"},
+     {"iterparse",  pasco_iterparse, METH_VARARGS, "yields entries from index.dat file rather than write to disk"},
      {NULL, NULL, 0, NULL}
 };
 
 PyMODINIT_FUNC
 initpascohelper(void)
 {
-     (void) Py_InitModule("pascohelper", PascoHelperMethods);
+      PyObject* m;
+      pasco_IterParseType.tp_new = PyType_GenericNew;
+      if (PyType_Ready(&pasco_IterParseType) < 0)  return;
+      m = Py_InitModule("pascohelper", PascoHelperMethods);
+
+      Py_INCREF(&pasco_IterParseType);
+      PyModule_AddObject(m, "_MyIter", (PyObject *) &pasco_IterParseType);
 }
