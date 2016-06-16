@@ -35,7 +35,6 @@
 #include <time.h>
 #include <math.h>
 #include <Python.h>
-
 //
 /* This is the default block size for an activity record */
 //
@@ -103,8 +102,8 @@ int printablestring( char *str ) {
 //
 /* This function parses a REDR record. */
 //
-
-int parse_redr( int history_file, int currrecoff, char *delim, int filesize, char *type ) {
+int
+parse_redr( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
   char fourbytes[4];
   char hashrecflagsstr[4];
   char chr;
@@ -149,18 +148,19 @@ int parse_redr( int history_file, int currrecoff, char *delim, int filesize, cha
   printablestring( filename );
   printablestring( dirname );
   printablestring( httpheaders );
-  printf( "%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders );
+  fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
   type[0] = '\0';
   free( url );
   free( filename );
   free( httpheaders );
+  return 0;
 }
 
 //
 /* This function parses a URL and LEAK activity record. */
 //
-
-int parse_url( int history_file, int currrecoff, char *delim, int filesize, char *type ) {
+int
+parse_url( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
   char fourbytes[4];
   char hashrecflagsstr[4];
   char eightbytes[8];
@@ -249,7 +249,7 @@ int parse_url( int history_file, int currrecoff, char *delim, int filesize, char
   if (type[3] == ' ') {
     type[3] = '\0';
   }
-  printf( "%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders );
+  fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
   type[0] = '\0';
   dirname[0] = '\0';
   ascmodtime[0] = '\0';
@@ -257,9 +257,10 @@ int parse_url( int history_file, int currrecoff, char *delim, int filesize, char
   free( url );
   free( filename );
   free( httpheaders );
+  return 0;
 }
 
-int parse_unknown( int history_file, int currrecoff, char *delim, int filesize, char *type ) {
+int parse_unknown( int history_file, int output_file, int currrecoff, char *delim, int filesize, char *type ) {
   type[0] = '\0';
 }
 
@@ -279,8 +280,9 @@ void usage( void ) {
 //
 /* MAIN function */
 //
-int main( int argc, char **argv ) {
-  int history_file;
+static PyObject*
+mainparse(PyObject* self, PyObject* args) {
+  int history_file, output_file;
   char fourbytes[4];
   char chr;
   char delim[10];
@@ -297,42 +299,41 @@ int main( int argc, char **argv ) {
   int nexthashoff;
   int offset;
   int hashrecflags;
-  int deleted = 0;
+  int deleted = 1;
 
-  if (argc < 2) {
-    usage();
-    exit( -2 );
-  }
-  strcpy( delim, "\t" );
-  printf("History File: %s\n\n", argv[argc-1]);
-  history_file = open( argv[argc-1], O_RDONLY, 0 );
-  if ( history_file <= 0 ) {
+  strcpy( delim, "||" );
+  const char * filename = "ok";
+  const char * out_filename = "ok";
+
+  if (!PyArg_ParseTuple(args, "ss", &filename, &out_filename))
+      return NULL;
+
+  //printf("History File: %s\n\n", filename);
+  //printf("Output  File: %s\n\n", out_filename);
+  PyObject * result =  Py_BuildValue("s", out_filename);
+  history_file = open( filename, O_RDONLY, 0 );
+  output_file = fopen(out_filename,"w");
+
+  if ( history_file <= 0 || output_file <= 0) {
     printf("ERROR - The index.dat file cannot be opened!\n\n");
-    usage();
-    exit( -3 );
+    //usage();
+    printf("ERROR\n\n");
+    return NULL;
   }
+
   pread( history_file, fourbytes, 4, 0x1C );
   filesize = bah_to_i( fourbytes, 4 );
-  while ((opt = getopt( argc, argv, "dt:f:")) != -1) {
-    switch(opt) {
-      case 't':
-        strncpy( delim, optarg, 10 );
-        break;
-      case 'd':
-        deleted = 1;
-        break;
-      default:
-        usage();
-        exit(-1);
-    }
-  }
-  printf( "TYPE%sURL%sMODIFIED TIME%sACCESS TIME%sFILENAME%sDIRECTORY%sHTTP HEADERS\n", delim, delim, delim, delim, delim, delim );
+
+
+  fprintf(output_file, "type%surl%smodified_time%saccess_time%sfilename%sdirectory%shttp_headers\n", delim, delim, delim, delim, delim, delim);
+
   if (deleted == 0) {
     pread( history_file, fourbytes, 4, 0x20 );
     hashoff = bah_to_i( fourbytes, 4 );
     while (hashoff != 0 ) {
       pread( history_file, fourbytes, 4, hashoff+8 );
       nexthashoff = bah_to_i( fourbytes, 4 );
+      if (nexthashoff == hashoff){break;}
       pread( history_file, fourbytes, 4, hashoff+4 );
       hashsize = bah_to_i( fourbytes, 4 )*BLOCK_SIZE;
       for (offset = hashoff + 16; offset < hashoff+hashsize; offset = offset+8) {
@@ -348,11 +349,11 @@ int main( int argc, char **argv ) {
             }
             type[4] = '\0';
             if (type[0] == 'R' && type[1] == 'E' && type[2] == 'D' && type[3] == 'R' ) {
-              parse_redr( history_file, currrecoff, delim, filesize, type );
+              parse_redr( history_file, output_file, currrecoff, delim, filesize, type );
             } else if ( (type[0] == 'U' && type[1] == 'R' && type[2] == 'L') || (type[0] == 'L' && type[1] == 'E' && type[2] == 'A' && type[3] == 'K') ) {
-              parse_url( history_file, currrecoff, delim, filesize, type );
+              parse_url( history_file, output_file, currrecoff, delim, filesize, type );
             } else {
-              parse_unknown( history_file, currrecoff, delim, filesize, type );
+              parse_unknown( history_file, output_file, currrecoff, delim, filesize, type );
             }
           }
         }
@@ -368,14 +369,31 @@ int main( int argc, char **argv ) {
       }
       type[4] = '\0';
       if (type[0] == 'R' && type[1] == 'E' && type[2] == 'D' && type[3] == 'R' ) {
-        parse_redr( history_file, currrecoff, delim, filesize, type );
+        parse_redr( history_file, output_file, currrecoff, delim, filesize, type );
       } else if ( (type[0] == 'U' && type[1] == 'R' && type[2] == 'L') || (type[0] == 'L' && type[1] == 'E' && type[2] == 'A' && type[3] == 'K') ) {
-        parse_url( history_file, currrecoff, delim, filesize, type );
+        parse_url( history_file, output_file, currrecoff, delim, filesize, type );
       } else {
-        parse_unknown( history_file, currrecoff, delim, filesize, type );
+        parse_unknown( history_file, output_file, currrecoff, delim, filesize, type );
       }
       currrecoff = currrecoff + BLOCK_SIZE;
     }
   }
   close (history_file);
+  fflush(output_file);
+  fsync(output_file);
+  close(output_file);
+  return result;
+}
+
+
+static PyMethodDef PascoHelperMethods[] =
+{
+     {"mainparse", mainparse, METH_VARARGS, "parses an index.dat file"},
+     {NULL, NULL, 0, NULL}
+};
+
+PyMODINIT_FUNC
+initpascohelper(void)
+{
+     (void) Py_InitModule("pascohelper", PascoHelperMethods);
 }
