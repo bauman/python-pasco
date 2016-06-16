@@ -26,6 +26,28 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+ /*
+ * Python Generator code and associated modifications:
+ * Copyright (c) 2016 Bauman
+ * The MIT License (MIT)
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 //gcc -o pasco pasco.c -lm -lc
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -520,7 +542,6 @@ pasco_iterparse(PyObject *self, PyObject *args)
   }
   pread( p->history_file, p->fourbytes, 4, 0x1C );
   p->filesize = bah_to_i( p->fourbytes, 4 );
-  //fprintf(output_file, "type%surl%smodified_time%saccess_time%sfilename%sdirectory%shttp_headers\n", delim, delim, delim, delim, delim, delim);
   p->currrecoff = 0;
   return (PyObject *)p;
 }
@@ -541,5 +562,5 @@ initpascohelper(void)
       m = Py_InitModule("pascohelper", PascoHelperMethods);
 
       Py_INCREF(&pasco_IterParseType);
-      PyModule_AddObject(m, "_MyIter", (PyObject *) &pasco_IterParseType);
+      PyModule_AddObject(m, "_pascoIter", (PyObject *) &pasco_IterParseType);
 }
