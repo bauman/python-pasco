@@ -468,7 +468,9 @@ PyObject* pasco_IterParse_iternext(PyObject *self)
     if (p->type[0] == 'R' && p->type[1] == 'E' && p->type[2] == 'D' && p->type[3] == 'R' ) {
       parse_redr( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
     } else if ( (p->type[0] == 'U' && p->type[1] == 'R' && p->type[2] == 'L') || (p->type[0] == 'L' && p->type[1] == 'E' && p->type[2] == 'A' && p->type[3] == 'K') ) {
+      //printf("goingtourl\n");
       parse_url( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
+      //printf("donewithurl\n");
     } else {
       parse_unknown( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
     }
@@ -482,7 +484,7 @@ PyObject* pasco_IterParse_iternext(PyObject *self)
   }
 }
 static PyTypeObject pasco_IterParseType = {
-        PyObject_HEAD_INIT(NULL)  //REMOVE THIS COMMA
+        PyObject_HEAD_INIT(NULL)  //REMOVE THIS COMMA./re
         0,                         /*ob_size*/
         "pascohelper._IterParse",            /*tp_name*/
         sizeof(pasco_IterParse),       /*tp_basicsize*/

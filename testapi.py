@@ -7,7 +7,7 @@ from pprint import pprint
 import pasco
 
 if len(argv) == 1:
-    filename = '/tmp/tmpr41Td2/support.CITRIX/AppData/Local/Microsoft/Windows/Temporary Internet Files/Content.IE5/index.dat'
+    filename = ''
 else:
     filename = argv[1]
 ip = pasco.IndexParser()
