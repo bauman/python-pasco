@@ -40,7 +40,7 @@
 /* This is the default block size for an activity record */
 //
 #define BLOCK_SIZE	0x80
-
+#define MAX_HEADER_PARSED 90
 //
 /* Backwards ASCII Hex to Integer */
 //
@@ -120,6 +120,7 @@ parse_redr( int history_file, int output_file,  PyObject** output_obj, int currr
   char *httpheaders;
   char ascmodtime[26], ascaccesstime[26];
   char dirname[9];
+  int invalidrecordlength = 0;
   pread( history_file, fourbytes, 4, currrecoff+4 );
   reclen = bah_to_i( fourbytes, 4 )*BLOCK_SIZE;
   url = (char *)malloc( reclen+1 );
@@ -151,9 +152,9 @@ parse_redr( int history_file, int output_file,  PyObject** output_obj, int currr
   printablestring( httpheaders );
   if (output_obj==NULL)
   {
-    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders, delim, invalidrecordlength);
   } else {
-    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders, delim, invalidrecordlength);
   }
   type[0] = '\0';
   free( url );
@@ -184,6 +185,7 @@ parse_url( int history_file, int output_file, PyObject** output_obj, int currrec
   char *url;
   char *filename;
   char *httpheaders;
+  int invalidrecordlength = 0;
 
   pread( history_file, fourbytes, 4, currrecoff+4 );
   reclen = bah_to_i( fourbytes, 4 )*BLOCK_SIZE;
@@ -211,6 +213,12 @@ parse_url( int history_file, int output_file, PyObject** output_obj, int currrec
     url[i] = chr;
     pread( history_file, &chr, 1, currrecoff+urloff+i+1 );
     i++;
+    if (i>reclen-10)
+    {
+      reclen = reclen*2;
+      url = (char *)realloc(url, reclen );
+      invalidrecordlength++;
+    }
   }
   url[i] = '\0';
   filename = (char *)malloc( reclen+1 );
@@ -222,6 +230,12 @@ parse_url( int history_file, int output_file, PyObject** output_obj, int currrec
     filename[i] = chr;
     pread( history_file, &chr, 1, filenameoff+i+1 );
     i++;
+    if (i>reclen-10)
+    {
+      reclen = reclen*2;
+      filename = (char *)realloc(filename, reclen );
+      invalidrecordlength++;
+    }
   }
   filename[i] = '\0';
   pread( history_file, &chr, 1, currrecoff+0x39 );
@@ -241,8 +255,18 @@ parse_url( int history_file, int output_file, PyObject** output_obj, int currrec
   pread( history_file, &chr, 1, httpheadersoff );
   while ( chr != '\0' && httpheadersoff+i+1 < currrecoff+reclen && httpheadersoff+i+1 < filesize ) {
     httpheaders[i] = chr;
+    //printf("headernum %d / %d\n", i, filesize);
     pread( history_file, &chr, 1, httpheadersoff+i+1 );
     i++;
+    if (i>reclen-10)
+    {
+      reclen = reclen*2;
+      httpheaders = (char *)realloc(httpheaders, reclen );
+      invalidrecordlength++;
+    }
+    if (i > MAX_HEADER_PARSED){
+      break;
+    }
   }
   httpheaders[i] = '\0';
   printablestring( type );
@@ -257,9 +281,9 @@ parse_url( int history_file, int output_file, PyObject** output_obj, int currrec
   }
   if (output_obj==NULL)
   {
-    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+    fprintf(output_file,"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d\n", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders, delim, invalidrecordlength);
   } else {
-    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders);
+    (* output_obj) = PyString_FromFormat("%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d", type, delim, url, delim, ascmodtime, delim, ascaccesstime, delim, filename, delim, dirname, delim, httpheaders, delim, invalidrecordlength);
   }
   type[0] = '\0';
   dirname[0] = '\0';
@@ -330,17 +354,14 @@ mainparse(PyObject* self, PyObject* args) {
   output_file = fopen(out_filename,"w");
 
   if ( history_file <= 0 || output_file <= 0) {
-    printf("ERROR - The index.dat file cannot be opened!\n\n");
-    //usage();
-    printf("ERROR\n\n");
-    return NULL;
+    return PyErr_Format(PyExc_IOError, "%s cannot be opened", filename);
   }
 
   pread( history_file, fourbytes, 4, 0x1C );
   filesize = bah_to_i( fourbytes, 4 );
 
 
-  fprintf(output_file, "type%surl%smodified_time%saccess_time%sfilename%sdirectory%shttp_headers\n", delim, delim, delim, delim, delim, delim);
+  fprintf(output_file, "type%surl%smodified_time%saccess_time%sfilename%sdirectory%shttp_headers%sinvalid_record_len\n", delim, delim, delim, delim, delim, delim, delim);
 
   if (deleted == 0) {
     pread( history_file, fourbytes, 4, 0x20 );
@@ -378,6 +399,7 @@ mainparse(PyObject* self, PyObject* args) {
   } else if (deleted == 1) {
     currrecoff = 0;
     while (currrecoff < filesize ) {
+      //printf("reading loop %d/%d\n", currrecoff, filesize);
       pread( history_file, fourbytes, 4, currrecoff );
       for (i=0;i < 4;i++) {
         type[i] = fourbytes[i];
@@ -515,9 +537,7 @@ pasco_iterparse(PyObject *self, PyObject *args)
 
   p->history_file = open( filename, O_RDONLY, 0 );
   if ( p->history_file <= 0 ) {
-    printf("ERROR - The index.dat file cannot be opened!\n\n");
-    printf("ERROR\n\n");
-    return NULL;
+    return PyErr_Format(PyExc_IOError, "%s cannot be opened", filename);
   }
   pread( p->history_file, p->fourbytes, 4, 0x1C );
   p->filesize = bah_to_i( p->fourbytes, 4 );

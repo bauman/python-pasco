@@ -14,3 +14,7 @@ ip = pasco.IndexParser()
 for match in ip.parse(filename):
     if match:
         pprint(match)
+
+for match in ip.parse(filename, ascsv=True):
+    if match:
+        pprint(match)

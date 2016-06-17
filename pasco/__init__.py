@@ -1,17 +1,20 @@
 import pascohelper
-from tempfile import NamedTemporaryFile
-import os
 class IndexParser(object):
     def __init__(self):
         self.delimiter = "||" #from pascohelpermodule.c
-        self.headers="type||url||modified_time||access_time||filename||directory||http_headers".split(self.delimiter)
+        self.headers="type||url||modified_time||access_time||filename||directory||http_headers||invalid_record_len".split(self.delimiter)
         return None
-    def parse(self, indexfile):
+    def parse(self, indexfile, ascsv=False):
+        if ascsv:
+            yield self.delimiter.join(self.headers)
         generator = pascohelper.iterparse( indexfile )
         for line in generator:
             if line:
-                line = line.split(self.delimiter)
-                yield self.make_dict(self.headers, line)
+                if ascsv:
+                    yield line
+                else:
+                    line = line.split(self.delimiter)
+                    yield self.make_dict(self.headers, line)
         return
     def make_dict(self, headers, line):
         result = {}
