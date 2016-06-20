@@ -31,3 +31,15 @@ to yield double-bar delimited format, use "ascsv" option
         if match:
             pprint(match)
 ```
+
+#install
+
+from source
+```
+    python setup.py install
+```
+
+for RHEL/CentOS
+```
+    sudo yum install -y http://pkgs.bauman.in/el7/RPMS/x86_64/python-pasco-0.1.1-1.x86_64.rpm
+```
