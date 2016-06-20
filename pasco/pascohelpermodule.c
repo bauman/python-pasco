@@ -468,9 +468,7 @@ PyObject* pasco_IterParse_iternext(PyObject *self)
     if (p->type[0] == 'R' && p->type[1] == 'E' && p->type[2] == 'D' && p->type[3] == 'R' ) {
       parse_redr( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
     } else if ( (p->type[0] == 'U' && p->type[1] == 'R' && p->type[2] == 'L') || (p->type[0] == 'L' && p->type[1] == 'E' && p->type[2] == 'A' && p->type[3] == 'K') ) {
-      //printf("goingtourl\n");
       parse_url( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
-      //printf("donewithurl\n");
     } else {
       parse_unknown( p->history_file, p->output_file, &tmp, p->currrecoff, p->delim, p->filesize, p->type );
     }
@@ -478,13 +476,12 @@ PyObject* pasco_IterParse_iternext(PyObject *self)
     return tmp;
   } else {
     close(p->history_file);
-    /* Raising of standard StopIteration exception with empty value. */
     PyErr_SetNone(PyExc_StopIteration);
     return NULL;
   }
 }
 static PyTypeObject pasco_IterParseType = {
-        PyObject_HEAD_INIT(NULL)  //REMOVE THIS COMMA./re
+        PyObject_HEAD_INIT(NULL)
         0,                         /*ob_size*/
         "pascohelper._IterParse",            /*tp_name*/
         sizeof(pasco_IterParse),       /*tp_basicsize*/
@@ -518,12 +515,10 @@ static PyTypeObject pasco_IterParseType = {
 static PyObject *
 pasco_iterparse(PyObject *self, PyObject *args)
 {
-  long int m;
   pasco_IterParse *p;
   p = PyObject_New(pasco_IterParse, &pasco_IterParseType);
   if (!p) return NULL;
 
-  /* I'm not sure if it's strictly necessary. */
   if (!PyObject_Init((PyObject *)p, &pasco_IterParseType)) {
     Py_DECREF(p);
     return NULL;
